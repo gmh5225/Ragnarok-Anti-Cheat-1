@@ -10,14 +10,15 @@ int PI::GetThreadCount(DWORD process)
     THREADENTRY32 threadEntry = {};
     auto threadCount = 0;
 
-    HMODULE kernel32 = LoadLibrary(L"kernel32.dll");
+
+    HMODULE kernel32 = LoadLibraryA(SO.Kernel32dllObf().c_str());
 
     if (kernel32 == INVALID_HANDLE_VALUE)
     {      
         return 1;
     }
 
-    LPFNCREATETOOLHELP32SNAPSHOT pCreateToolhelp32Snapshot = (LPFNCREATETOOLHELP32SNAPSHOT)GetProcAddress(kernel32, "CreateToolhelp32Snapshot");
+    LPFNCREATETOOLHELP32SNAPSHOT pCreateToolhelp32Snapshot = (LPFNCREATETOOLHELP32SNAPSHOT)GetProcAddress(kernel32, SO.CreateToolhelp32SnapshotObf().c_str());
 
     if (pCreateToolhelp32Snapshot == nullptr)
     {     
@@ -59,9 +60,9 @@ std::string PI::GetWorkingDirectory(DWORD process)
     HANDLE fileHandle;
     HANDLE processHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process);
 
+
     if (processHandle == NULL)
-    {
-        DWORD error = GetLastError();
+    {       
         return "";
     }
 
@@ -82,7 +83,7 @@ std::string PI::GetWorkingDirectory(DWORD process)
         return "";
     }
 
-    result = GetFinalPathNameByHandle(fileHandle, finalPath, MAX_PATH, FILE_NAME_NORMALIZED);
+    result = GetFinalPathNameByHandleW(fileHandle, finalPath, MAX_PATH, FILE_NAME_NORMALIZED);
 
     if (result == 0)
     {        
@@ -105,3 +106,51 @@ std::string PI::GetWorkingDirectory(DWORD process)
 
     return s.substr(0, lastSlash);
 }
+
+
+//std::vector<std::string> PI::GetProcessModules()
+//{
+//    std::vector<std::string> modules;
+//    MODULEENTRY32 module;
+//    HANDLE capture;
+//
+//
+//    HMODULE kernel32 = LoadLibrary(L"kernel32.dll");
+//
+//    if (kernel32 == INVALID_HANDLE_VALUE)
+//    {
+//        return modules;
+//    }
+//
+//    LPFNCREATETOOLHELP32SNAPSHOT pCreateToolhelp32Snapshot = (LPFNCREATETOOLHELP32SNAPSHOT)GetProcAddress(kernel32, "CreateToolhelp32Snapshot");
+//
+//    if (pCreateToolhelp32Snapshot == nullptr)
+//    {
+//        if (kernel32 != nullptr)
+//        {
+//            FreeLibrary(kernel32);
+//        } 
+//
+//        return modules;
+//    }
+//
+//    capture = pCreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+//
+//    if (capture == INVALID_HANDLE_VALUE)
+//    {
+//        return modules;
+//    }
+//
+//    module.dwSize = sizeof(module);
+//
+//    if (Module32First(capture, &module)) 
+//    {
+//        do 
+//        {
+//            modules.emplace_back(module.szExePath);      
+//        } 
+//        while (Module32Next(capture, &module));
+//    }
+//
+//    return modules;
+//}

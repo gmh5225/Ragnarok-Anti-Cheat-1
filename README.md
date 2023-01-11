@@ -1,5 +1,6 @@
 # Ragnarok
-WORK IN PROGRESS
+Anti-Cheat / Tamper
 
 ## About
-Not sure what direction I want to get with this project, maybe something similar to an Anti-Cheat / Anti-Tamper software.
+
+psudeo project revolving around anti-cheat / tamper software: EAC, ricochet. I'm not wasting money on CA so this isn't going to be a driver. 

@@ -1,5 +1,9 @@
 #include <map>
 #include <string>
+#include <Windows.h>
+#include <Psapi.h>
+#include <iostream>
+#include <filesystem>
 
 
 
@@ -7,10 +11,19 @@ class SuspiciousProcessDetector
 {
 	public:
         
-        int CommonDebuggersFound();
+        /// <summary>
+        /// EnumProcess and compares the image file name to ones inside of debuggers map.
+        /// </summary>
+        /// <returns></returns>
+        int EasyCheckForSusProcesses();
+        /// <summary>
+        /// Sometime attackers can launch a process under a different name, but hard-coded into every process is the original name.
+        /// </summary>
+        /// <returns></returns>
+        int CheckInternalNameForSusProcesses();
 
 
-	private:
+	private:       
 
         /// <summary>
         /// Reads process memory common strings found inside of cheat engine -- extra layer of verification:

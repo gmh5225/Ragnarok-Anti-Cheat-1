@@ -38,7 +38,7 @@ std::string SystemInformer::GetSystemDriveSerialNumber()
         }
         else 
         {
-            //
+            return "";
         }
     }
 

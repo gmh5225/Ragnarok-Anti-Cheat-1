@@ -15,10 +15,15 @@ class SystemInformer
 		/// <returns>Example output: C:\</returns>
 		std::string GetSystemDriveLetter();
 		/// <summary>
-		/// Returns the system drive serial number.
+		/// Returns the system drive serial number which has been assigned to it via the OS.
 		/// </summary>
 		/// <returns>System drive serial number. FAIL = empty string.</returns>
 		std::string GetSystemDriveSerialNumber();
+		/// <summary>
+		/// Runs checks to detect the status of Hyper-V.
+		/// </summary>
+		/// <returns>True if Hyper-V is enable, False otherwise.</returns>
+		bool IsHyperVEnabled();
 
 
 	private:

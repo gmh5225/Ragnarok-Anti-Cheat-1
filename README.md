@@ -7,5 +7,5 @@ user-mode psudeo project revolving around anti-cheat / tamper software: EAC, ric
 
 ### Future
 
-Probably test this project against moderen & old cheat methods and compare results against Ricochet since it so far appears to be the wrost AC that's 
+Probably test this project against moderen & old cheat methods and compare results against Ricochet since it so far appears to be the worst AC that's 
 at the least, relevant.

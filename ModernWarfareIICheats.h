@@ -14,7 +14,7 @@ class Mw2CheatProviderDetection
 
         std::map<std::string, std::string> DriverHashesMD5 =
         {
-            {"FileIoPort.sys", "B652757B10B55018B7D233288FB39B77"},     //  Apple Cheats : https://applecheats.cc/index.php  
+            {"FileIoPort.sys", "B652757B10B55018B7D233288FB39B77"},
         };
 
         

@@ -6,28 +6,34 @@
 #include <filesystem>
 
 
+#include "secrets.h"
 
-class SuspiciousProcessDetector
+
+
+class ProcessDetection
 {
 	public:
         
         /// <summary>
-        /// Traverses through the process list and compares the file & internal name to ones inside of debuggers map values.
+        /// Traverses through the process list and compares the file & internal name to ones inside of the NaughtyList.
         /// </summary>
         /// <returns></returns>
         int CheckForProcessesByName();
         /// <summary>
-        /// Reads process memory and searches for key string that are typically inside of the cheat engine binary.
+        /// Reads process memory and searches for key strings that are typically inside of the cheat engine process.
         /// </summary>
         /// <param name="processId"></param>
-        /// <returns>Returns True if Cheat Engine strings have been found in the process, false otherwise.</returns>
+        /// <returns>True if a string has been detected in the processes memory, otherwise false.</returns>
         bool CheatEngineStringsFoundInProcess(DWORD processId);
         
 
 	private:       
 
-       
-        std::map<std::string, std::string> debuggers = 
+        typedef BOOL(WINAPI* DynReadProcessMemory)(HANDLE, LPCVOID, LPVOID, SIZE_T, SIZE_T*);
+        StringObfuscation SO;
+
+
+        std::map<std::string, std::string> NaughtyList = 
         {
             {"IDA Pro", "ida.exe"},
             {"OllyDbg", "ollydbg.exe"},
@@ -45,7 +51,7 @@ class SuspiciousProcessDetector
         };
 
 
-        std::vector<std::string> CheatEngineStringFlags = 
+        std::vector<std::string> CheatEngineString = 
         {
             "Cheat Engine",
             "cheat engine",
@@ -61,6 +67,9 @@ class SuspiciousProcessDetector
             "cheatEngine",
             "CHEATENGINE",
             "CHeatEngine",
-            "CheatEngine",           
+            "CheatEngine",
+            "CET_TRAINER.CETRAINER",
+            ".CETRAINER",
+            "TCEThread"
         };
 };

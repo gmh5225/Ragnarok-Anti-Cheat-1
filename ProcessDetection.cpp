@@ -2,129 +2,130 @@
 
 
 
-int SuspiciousProcessDetector::CheckForProcessesByName()
+int ProcessDetection::CheckForProcessesByName()
 {
 
     DWORD processes[1024], cbNeeded, cProcesses;
-    HANDLE targetprocess = INVALID_HANDLE_VALUE;
     std::string processName;
     std::filesystem::path filePath;
     
-
     if (K32EnumProcesses(processes, sizeof(processes), &cbNeeded))
     {
-     
         cProcesses = cbNeeded / sizeof(DWORD);
         
         for (unsigned int i = 0; i < cProcesses; i++)
         {
             if (processes[i] != 0)
             {                              
-
-                targetprocess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, processes[i]);
+                HANDLE targetprocess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, processes[i]);
                 
                 if (targetprocess == INVALID_HANDLE_VALUE)
-                {
-                    return -1;
+                {                   
+                    continue;
                 }                             
                 
                 char buffer[MAX_PATH] = {};
 
-                K32GetProcessImageFileNameA(targetprocess, buffer, MAX_PATH);
-
-                if (sizeof(buffer) > 0)
+                if (K32GetProcessImageFileNameA(targetprocess, buffer, MAX_PATH) != 0)
                 {
-                    processName = std::string(buffer);
-                    filePath = processName;
-
-                    for (auto iter = debuggers.begin(); iter != debuggers.end(); iter++)
+                    if (sizeof(buffer) > 0)
                     {
-                        std::string value = iter->second;
-                        std::string internal = filePath.stem().string();
-                        
-                        if (filePath.filename().string() == value)
+                        processName = std::string(buffer);
+                        filePath = processName;
+
+                        for (auto iter = NaughtyList.begin(); iter != NaughtyList.end(); iter++)
                         {
-                            //  do stuff
-                        }                       
-                        else if ((internal += ".exe") == value)
-                        {
-                            //  do stuff
+                            std::string value = iter->second;
+                            std::string internal = filePath.stem().string();
+
+                            if (filePath.filename().string() == value)
+                            {
+                                //  do stuff
+                            }
+                            else if ((internal += ".exe") == value)
+                            {
+                                //  do stuff
+                            }
                         }
                     }
-                }                
-                                                                                               
+                }
                 CloseHandle(targetprocess);
             }
-        }
+            memset(&processes, 0, sizeof(processes));
+        }       
     }
-
     return 1;
 }
 
 
-bool SuspiciousProcessDetector::CheatEngineStringsFoundInProcess(DWORD processId)
+bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
 {
-    HANDLE process = NULL; 
     
-    process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+    HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
 
-    if (process == NULL)
-    {
-
-        DWORD lastError = GetLastError();
-
-        if (lastError == ERROR_ACCESS_DENIED)
-        {
-            //  do stuff... Probably going to adjusted privs and attempt to reopen the process with vm read again.
-        }
-
+    if (process == INVALID_HANDLE_VALUE)
+    {               
         return false;
     }
 
+    process = (HANDLE)EncodePointer(process);
 
-    SYSTEM_INFO sysInfo;
-    GetSystemInfo(&sysInfo);
-    LPVOID baseAddress = sysInfo.lpMinimumApplicationAddress;
-    LPVOID maxAddress = sysInfo.lpMaximumApplicationAddress;
+    SYSTEM_INFO systeminfo = {};
+    GetSystemInfo(&systeminfo);
+    LPVOID base = systeminfo.lpMinimumApplicationAddress;
+    LPVOID max = systeminfo.lpMaximumApplicationAddress;
     size_t found;
-    SIZE_T bytesRead;
-    const int bufferSize = 4096;
-    char buffer[bufferSize];
+    const int buffsize = 8096;
+    char buffer[buffsize];
 
+    HMODULE kernel32 = LoadLibraryA(static_cast<const char*>(SO.Kernel32dllObf().c_str()));
 
-    while (baseAddress < maxAddress)
+    if (kernel32 == INVALID_HANDLE_VALUE || nullptr)
+    {
+        process = (HANDLE)DecodePointer(process);
+        return false;
+    }
+
+    DynReadProcessMemory ptrReadProcessMemory = (DynReadProcessMemory)GetProcAddress(kernel32, static_cast<const char*>(SO.ReadProcessMemoryObf().c_str()));
+
+    if (ptrReadProcessMemory == nullptr)
+    {
+        process = (HANDLE)DecodePointer(process);
+        return false;
+    }
+
+    CloseHandle(kernel32);
+
+    process = (HANDLE)DecodePointer(process);
+
+    while (base < max)
     {
         SIZE_T bytesRead;
 
-        if (ReadProcessMemory(process, baseAddress, buffer, bufferSize, &bytesRead))
+        if (ptrReadProcessMemory(process, base, buffer, buffsize, &bytesRead))
         {
 
             std::string memoryContent(buffer, buffer + bytesRead);
            
-
-            for (const auto& currentString : CheatEngineStringFlags)
+            for (const auto& currentString : CheatEngineString)
             {
-
-                found = memoryContent.find(currentString);
+                found = memoryContent.find_first_of(currentString);
 
                 if (found != std::string::npos)
-                {
-                    std::cout << "FOUND: " << currentString << std::endl;   //  Just for testing
+                {                                      
                     CloseHandle(process);
-                    sysInfo = {0};
+                    systeminfo = {};
                     return true;
                 }
-            }
-                       
-            baseAddress = (LPVOID)((DWORD)baseAddress + bytesRead);
+            }                      
+            base = (LPVOID)((DWORD)base + bytesRead);
         }
         else
         {
-            baseAddress = (LPVOID)((DWORD)baseAddress + bufferSize);
+            base = (LPVOID)((DWORD)base + buffsize);
         }
     }
 
     CloseHandle(process);
-    sysInfo = {0};
     return false;
 }

@@ -14,11 +14,7 @@ class Mw2CheatProviderDetection
 
         std::map<std::string, std::string> DriverHashesMD5 =
         {
-            {"FileIoPort.sys", "B652757B10B55018B7D233288FB39B77"},
+	    {"NalDrv.sys", 1898CEDA3247213C084F43637EF163B3},
+            {"FileIoPort.sys", "B652757B10B55018B7D233288FB39B77"}
         };
-
-        
-
-
-
 };

@@ -20,4 +20,4 @@ This project will mainly focus on Activision's 2022 MW2/WZ2. You can basically c
 
 ### Future
 
-Endgame, hopefully get recruited to an Anti-Cheat team. Best case scenario, I'm the least knowledgable person - I say this because I enjoy the learning process of this low-level stuff & being the smartest person on a team has to be boring.
+No clue... Anti-Cheat & Anti-Virus software are kind of passion projects for me, so I'll probably continue adding to this project over time or focus on something else like AV, basically they are the same thing.

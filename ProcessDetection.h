@@ -1,16 +1,17 @@
 #include <map>
 #include <string>
 #include <Windows.h>
+#pragma once
 #include <Psapi.h>
 #include <iostream>
 #include <filesystem>
-
-
+#include <Sddl.h>
+#include <vector>
 #include "secrets.h"
 
 
 
-class ProcessDetection
+class ProcessDetection : public StringObfuscation
 {
 	public:
         
@@ -25,13 +26,14 @@ class ProcessDetection
         /// <param name="processId"></param>
         /// <returns>True if a string has been detected in the processes memory, otherwise false.</returns>
         bool CheatEngineStringsFoundInProcess(DWORD processId);
+        void DetectTokens();
+        
         
 
 	private:       
 
         typedef BOOL(WINAPI* DynReadProcessMemory)(HANDLE, LPCVOID, LPVOID, SIZE_T, SIZE_T*);
-        StringObfuscation SO;
-
+        typedef BOOL(WINAPI* Dyn32EnumProcesses)(DWORD*, DWORD, DWORD*);
 
         std::map<std::string, std::string> NaughtyList = 
         {

@@ -10,7 +10,7 @@ void SMBIOSHWID::ShowHwid()
     const DWORD Signature = 'RSMB';
     LPBYTE buffer = NULL;
     
-    HMODULE kernel32 = LoadLibraryA(kernel32dllObf().c_str());
+    HMODULE kernel32 = LoadLibraryExA(kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
 
     if (kernel32 == NULL)
     {
@@ -255,7 +255,8 @@ void SMBIOSHWID::DumpSMBIOSStruct(void* Addr, UINT Len)
         case 0:
             if (header->Length == 0 && (isbiosempty == false))
             {
-                std::cout << "\n---\tBIO structure appears to be empty\t---\n" << std::endl;
+                //std::cout << "\n---\tBIO structure appears to be empty\t---\n" << std::endl;
+                _tprintf(XORWIDE(TEXT("\n---\tBIO structure appears to be empty\t---\n")));
                 isbiosempty = true;
                 //continue;
             }
@@ -263,7 +264,8 @@ void SMBIOSHWID::DumpSMBIOSStruct(void* Addr, UINT Len)
         case 1:
             if (header->Length == 0 && (issysempty == false))
             {
-                std::cout << "\n---\tSYS structure appears to be empty\t---\n" << std::endl;
+                //std::cout << "\n---\tSYS structure appears to be empty\t---\n" << std::endl;
+                _tprintf(XORWIDE(TEXT("\n---\tSYS structure appears to be empty\t---\n")));
                 issysempty = true;
                 //continue;
             }
@@ -271,7 +273,8 @@ void SMBIOSHWID::DumpSMBIOSStruct(void* Addr, UINT Len)
         case 2:
             if (header->Length == 0 && (islogicbempty == false))
             {
-                std::cout << "\n---\tLOGIC BOARD structure appears to be empty\t---\n" << std::endl;
+                //std::cout << "\n---\tLOGIC BOARD structure appears to be empty\t---\n" << std::endl;
+                _tprintf(XORWIDE(TEXT("\n---\tLOGIC BOARD structure appears to be empty\t---\n")));
                 islogicbempty = true;
                 //continue;
             }
@@ -279,7 +282,8 @@ void SMBIOSHWID::DumpSMBIOSStruct(void* Addr, UINT Len)
         case 4:
             if (header->Length == 0 && (isprocessorempty == false))
             {
-                std::cout << "\n---\tPROCESSOR structure appears to be empty\t---\n" << std::endl;
+                //std::cout << "\n---\tPROCESSOR structure appears to be empty\t---\n" << std::endl;
+                _tprintf(XORWIDE(TEXT("\n---\tPROCESSOR structure appears to be empty\t---\n")));
                 isprocessorempty = true;
                 //continue;
             }
@@ -287,7 +291,8 @@ void SMBIOSHWID::DumpSMBIOSStruct(void* Addr, UINT Len)
         case 17:
             if (header->Length == 0 && (ismemempty == false))
             {
-                std::cout << "\n---\tMEMORY structure appears to be empty\t---\n" << std::endl;
+                //std::cout << "\n---\tMEMORY structure appears to be empty\t---\n" << std::endl;
+                _tprintf(XORWIDE(TEXT("\n---\tMEMORY structure appears to be empty\t---\n")));
                 ismemempty = true;
                 //continue;
             }
@@ -295,7 +300,8 @@ void SMBIOSHWID::DumpSMBIOSStruct(void* Addr, UINT Len)
         case 22:
             if (header->Length == 0 && (ispbatteryempty = false)) 
             {
-                std::cout << "\n---\tPBATTERY structure appears to be empty\t---\n" << std::endl;
+                //std::cout << "\n---\tPBATTERY structure appears to be empty\t---\n" << std::endl;
+                _tprintf(XORWIDE(TEXT("\n---\tBATTERY structure appears to be empty\t---\n")));
                 ispbatteryempty = true;
                 //continue;
             }
@@ -303,7 +309,8 @@ void SMBIOSHWID::DumpSMBIOSStruct(void* Addr, UINT Len)
         case 41:
             if (header->Length == 0 && (isnetdeviceempty == false))
             {
-                std::cout << "\n---\tNETWORK DEVICE structure appears to be empty\t---\n" << std::endl;
+                //std::cout << "\n---\tNETWORK DEVICE structure appears to be empty\t---\n" << std::endl;
+                _tprintf(XORWIDE(TEXT("\n---\tNETWORK DEVICE structure appears to be empty\t---\n")));
                 isnetdeviceempty == true;    
                 return;
             }

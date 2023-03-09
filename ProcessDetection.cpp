@@ -9,8 +9,24 @@ int ProcessDetection::CheckForProcessesByName()
     DWORD processes[1024], cbNeeded, cProcesses;
     std::string processName;
     std::filesystem::path filePath;
-    
-    if (K32EnumProcesses(processes, sizeof(processes), &cbNeeded))
+    HMODULE kernel32 = LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    Dyn32EnumProcesses ptrK32EnumProcesses = nullptr;
+
+    if (kernel32 == INVALID_HANDLE_VALUE)
+    {
+        return FailedLoadLib;
+    }
+
+    ptrK32EnumProcesses = (Dyn32EnumProcesses)GetProcAddress(kernel32, K32EnumProcessesObf().c_str());
+
+    if (ptrK32EnumProcesses == nullptr)
+    {
+        FreeLibrary(kernel32);
+        CloseHandle(kernel32);
+        return FailedGetProc;
+    }
+
+    if (ptrK32EnumProcesses(processes, sizeof(processes), &cbNeeded))
     {
         cProcesses = cbNeeded / sizeof(DWORD);
         
@@ -41,11 +57,13 @@ int ProcessDetection::CheckForProcessesByName()
 
                             if (filePath.filename().string() == value)
                             {
-                                //  do stuff
+                                TerminateProcess(targetprocess, 0);
+                                CloseHandle(targetprocess);
                             }
                             else if ((internal += ".exe") == value)
                             {
-                                //  do stuff
+                                TerminateProcess(targetprocess, 0);
+                                CloseHandle(targetprocess);
                             }
                         }
                     }
@@ -55,7 +73,10 @@ int ProcessDetection::CheckForProcessesByName()
         }  
         memset(&processes, 0, sizeof(processes));
     }
-    return 1;
+    ptrK32EnumProcesses = nullptr;
+    CloseHandle(kernel32);
+    FreeLibrary(kernel32);
+    return RanEnd;
 }
 
 
@@ -79,23 +100,25 @@ bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
     const int buffsize = 8096;
     char buffer[buffsize];
 
-    HMODULE kernel32 = LoadLibraryA(static_cast<const char*>(Kernel32dllObf().c_str()));
+    HMODULE kernel32 = LoadLibraryA(Kernel32dllObf().c_str());
 
     if (kernel32 == INVALID_HANDLE_VALUE || nullptr)
     {
         process = (HANDLE)DecodePointer(process);
+        CloseHandle(process);
         return false;
     }
 
-    DynReadProcessMemory ptrReadProcessMemory = (DynReadProcessMemory)GetProcAddress(kernel32, static_cast<const char*>(ReadProcessMemoryObf().c_str()));
+    DynReadProcessMemory ptrReadProcessMemory = (DynReadProcessMemory)GetProcAddress(kernel32, ReadProcessMemoryObf().c_str());
 
     if (ptrReadProcessMemory == nullptr)
     {
+        FreeLibrary(kernel32);
+        CloseHandle(kernel32);
         process = (HANDLE)DecodePointer(process);
+        CloseHandle(process);
         return false;
-    }
-
-    CloseHandle(kernel32);
+    }  
 
     process = (HANDLE)DecodePointer(process);
 
@@ -105,7 +128,6 @@ bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
 
         if (ptrReadProcessMemory(process, base, buffer, buffsize, &bytesRead))
         {
-
             std::string memoryContent(buffer, buffer + bytesRead);
            
             for (const auto& currentString : CheatEngineString)
@@ -115,7 +137,10 @@ bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
                 if (found != std::string::npos)
                 {                                      
                     CloseHandle(process);
+                    FreeLibrary(kernel32);
+                    CloseHandle(kernel32);
                     systeminfo = {};
+                    ptrReadProcessMemory = nullptr;
                     return true;
                 }
             }                      
@@ -128,15 +153,19 @@ bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
     }
 
     CloseHandle(process);
+    FreeLibrary(kernel32);
+    CloseHandle(kernel32);
+    systeminfo = {};
+    ptrReadProcessMemory = nullptr;
     return false;
 }
 
 
-void ProcessDetection::DetectTokens()
+void ProcessDetection::DetectSeDebugPrivilegeToken()
 {
 
     DWORD processes[1024], cbNeeded, cProcesses; 
-    HMODULE kernel32 = LoadLibraryA(Kernel32dllObf().c_str());
+    HMODULE kernel32 = LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
     Dyn32EnumProcesses ptrK32EnumProcesses = nullptr;
 
     if (kernel32 == INVALID_HANDLE_VALUE)
@@ -196,8 +225,7 @@ void ProcessDetection::DetectTokens()
                                         break;
                                     }
                                 }
-                            }
-                            //  std::cout << (hasprivilege ? "Found something good!" : "") << std::endl;
+                            }                            
                         }
                     }                                                                      
                     CloseHandle(ptoken);
@@ -206,7 +234,8 @@ void ProcessDetection::DetectTokens()
                 {
                     CloseHandle(targetprocess);
                     continue;                   
-                }                                            
+                }
+                CloseHandle(targetprocess);
             }
         }
         ptrK32EnumProcesses = nullptr;

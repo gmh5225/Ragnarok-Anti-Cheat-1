@@ -6,30 +6,26 @@
 int ProcessInformer::GetThreadCount(DWORD process)
 {
 
-    HANDLE snapshotHandle = INVALID_HANDLE_VALUE;
-    THREADENTRY32 threadEntry = {};
+    THREADENTRY32 threadEntry;
     int threadCount = 0;
 
+    HMODULE kernel32 = LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
 
-    HMODULE kernel32 = LoadLibraryA(SO.Kernel32dllObf().c_str());
+    if (kernel32 == INVALID_HANDLE_VALUE) { return -1; }
 
-    if (kernel32 == INVALID_HANDLE_VALUE)
-    {      
-        return -1;
-    }
+    pCreateToolhelp32Snapshot ptrCreateToolhelp32Snapshot = (pCreateToolhelp32Snapshot)GetProcAddress(kernel32, CreateToolhelp32SnapshotObf().c_str());
 
-    DYNCREATETOOLHELP32SNAPSHOT pCreateToolhelp32Snapshot = (DYNCREATETOOLHELP32SNAPSHOT)GetProcAddress(kernel32, SO.CreateToolhelp32SnapshotObf().c_str());
-
-    if (pCreateToolhelp32Snapshot == nullptr)
-    {     
+    if (ptrCreateToolhelp32Snapshot == nullptr)
+    {            
         FreeLibrary(kernel32);
         return -1;
     }
 
-    snapshotHandle = pCreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    HANDLE snapshotHandle = ptrCreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, process);
 
     if (snapshotHandle == INVALID_HANDLE_VALUE)
     {
+        FreeLibrary(kernel32);
         return -1;
     }
     
@@ -47,19 +43,19 @@ int ProcessInformer::GetThreadCount(DWORD process)
     }
 
     CloseHandle(snapshotHandle);
+    FreeLibrary(kernel32);
     return threadCount;
 }
 
 
 int ProcessInformer::GetModuleCount(DWORD process)
 {
-    HANDLE proc = INVALID_HANDLE_VALUE;
+     
     HMODULE mods[1024];
     DWORD cb;
     int count = -1;
 
-
-    proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, process);
+    HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, process);
 
     if (proc == INVALID_HANDLE_VALUE)
     {        
@@ -80,19 +76,41 @@ int ProcessInformer::GetModuleCount(DWORD process)
 }
 
 
+inline bool ProcessInformer::IsTargetArchitectureMatching(DWORD pid) 
+{
+
+    HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+
+    if (process == INVALID_HANDLE_VALUE)
+    {
+        return false;
+    }
+
+    BOOL target = FALSE;
+    BOOL host = FALSE;
+
+    if (!IsWow64Process(process, &target)) 
+    {        
+        CloseHandle(process);
+        return false;
+    }
+
+    IsWow64Process(GetCurrentProcess(), &host);
+
+    CloseHandle(process);
+
+    return (target == host);
+}
+
+
 std::string ProcessInformer::GetWorkingDirectory(DWORD process)
 {
 
     WCHAR buffer[MAX_PATH] = {};
     WCHAR finalPath[sizeof(buffer)];
-    DWORD size = sizeof(buffer) ;
-    HANDLE fileHandle = INVALID_HANDLE_VALUE;
-    HANDLE processHandle = INVALID_HANDLE_VALUE; 
-    
-
-    //  Process stufff
+    DWORD size = sizeof(buffer) ;      
      
-    processHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process);
+    HANDLE processHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process);
 
     if (processHandle == INVALID_HANDLE_VALUE)
     {       
@@ -108,10 +126,7 @@ std::string ProcessInformer::GetWorkingDirectory(DWORD process)
         return "";
     }
 
-
-    //  File stufff
-
-    fileHandle = CreateFileW(buffer, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+    HANDLE fileHandle = CreateFileW(buffer, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 
     if (fileHandle == INVALID_HANDLE_VALUE)
     {
@@ -141,6 +156,36 @@ std::string ProcessInformer::GetWorkingDirectory(DWORD process)
     return s.substr(0, lastSlash);
 }
 
+
+std::string ProcessInformer::GetProcessName(DWORD pid)
+{
+
+    HANDLE processHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+
+    if (processHandle == INVALID_HANDLE_VALUE)
+    {
+        return "";
+    }
+
+    char name[MAX_PATH];
+
+    if (GetProcessImageFileNameA(processHandle, name, MAX_PATH))
+    {
+        char* nameptr = strrchr(name, '\\');
+
+        if (nameptr)
+        {
+            nameptr++;
+            std::string nameasstring(nameptr);
+            CloseHandle(processHandle);
+            ZeroMemory(name, sizeof(name));
+            return nameasstring;
+        }
+    }
+    CloseHandle(processHandle);
+    ZeroMemory(name, sizeof(name));
+    return "";
+}
 
 //std::vector<std::string> PI::GetProcessModules()
 //{

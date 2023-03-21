@@ -166,10 +166,10 @@ void ProcessDetection::DetectSeDebugPrivilegeToken()
     DynGetTokenInformation ptrGetTokenInformation = nullptr;
     DynOpenProcessToken ptrOpenProcessToken = nullptr;
 
-    HMODULE kernel32 = LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    HMODULE kernel32 = _LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (kernel32 == INVALID_HANDLE_VALUE) { return; }
 
-    HMODULE advapi32 = LoadLibraryExA(Advapi32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    HMODULE advapi32 = _LoadLibraryExA(Advapi32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (advapi32 == NULL)
     {
         FreeLibrary(kernel32);
@@ -180,37 +180,16 @@ void ProcessDetection::DetectSeDebugPrivilegeToken()
     FARPROC ptrGetProcAddress = FindGetProcAddress();
 
     ptrK32EnumProcesses = (Dyn32EnumProcesses)((FARPROC(*)(HMODULE, LPCSTR))ptrGetProcAddress)(kernel32, K32EnumProcessesObf().c_str());
-    //  ptrK32EnumProcesses = (Dyn32EnumProcesses)GetProcAddress(kernel32, K32EnumProcessesObf().c_str());
-
-    if (ptrK32EnumProcesses == nullptr)
-    {
-        FreeLibrary(kernel32);
-        FreeLibrary(advapi32);
-        return;
-    }
+    ptrK32EnumProcesses == nullptr ? (FreeLibrary(kernel32), FreeLibrary(advapi32), void()) : void();
 
     if (ptrK32EnumProcesses(processes, sizeof(processes), &cbNeeded))
     {      
         ptrOpenProcessToken = (DynOpenProcessToken)((FARPROC(*)(HMODULE, LPCSTR))ptrGetProcAddress)(advapi32, OpenProcessTokenObf().c_str());
-        //  ptrOpenProcessToken = (DynOpenProcessToken)GetProcAddress(advapi32, OpenProcessTokenObf().c_str());
-        if (ptrOpenProcessToken == nullptr) 
-        {            
-            FreeLibrary(kernel32);
-            FreeLibrary(advapi32);    
-            ptrK32EnumProcesses = nullptr;            
-            return;
-        }
+        ptrOpenProcessToken == nullptr ? (FreeLibrary(kernel32), FreeLibrary(advapi32), ptrK32EnumProcesses = nullptr, void()) : void();
+
 
         ptrGetTokenInformation = (DynGetTokenInformation)((FARPROC(*)(HMODULE, LPCSTR))ptrGetProcAddress)(advapi32, GetTokenInformationObf().c_str());
-        //  ptrGetTokenInformation = (DynGetTokenInformation)GetProcAddress(advapi32, GetTokenInformationObf().c_str());
-        if (ptrGetTokenInformation == nullptr) 
-        { 
-            FreeLibrary(kernel32);
-            FreeLibrary(advapi32);
-            ptrK32EnumProcesses = nullptr;
-            ptrOpenProcessToken = nullptr;
-            return;
-        }
+        ptrGetTokenInformation == nullptr ? (FreeLibrary(kernel32), FreeLibrary(advapi32), ptrK32EnumProcesses = nullptr, ptrOpenProcessToken = nullptr, void()) : void();
 
         cProcesses = cbNeeded / sizeof(DWORD);
 

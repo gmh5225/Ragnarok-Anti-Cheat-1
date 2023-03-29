@@ -8,12 +8,13 @@ int ProcessInformer::GetThreadCount(DWORD process)
 
     THREADENTRY32 threadEntry;
     int threadCount = 0;
+    DynCreateToolhelp32Snapshot ptrCreateToolhelp32Snapshot = nullptr;
 
     HMODULE kernel32 = LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
 
     if (kernel32 == INVALID_HANDLE_VALUE) { return -1; }
 
-    pCreateToolhelp32Snapshot ptrCreateToolhelp32Snapshot = (pCreateToolhelp32Snapshot)GetProcAddress(kernel32, CreateToolhelp32SnapshotObf().c_str());
+    ptrCreateToolhelp32Snapshot = (DynCreateToolhelp32Snapshot)GetProcAddress(kernel32, CreateToolhelp32SnapshotObf().c_str());
 
     if (ptrCreateToolhelp32Snapshot == nullptr)
     {            
@@ -26,6 +27,7 @@ int ProcessInformer::GetThreadCount(DWORD process)
     if (snapshotHandle == INVALID_HANDLE_VALUE)
     {
         FreeLibrary(kernel32);
+        ptrCreateToolhelp32Snapshot = nullptr;
         return -1;
     }
     
@@ -41,42 +43,64 @@ int ProcessInformer::GetThreadCount(DWORD process)
             }
         } while (Thread32Next(snapshotHandle, &threadEntry));
     }
+    else
+    {
+        CloseHandle(snapshotHandle);
+        FreeLibrary(kernel32);
+        ptrCreateToolhelp32Snapshot = nullptr;
+        return -1;
+    }
 
     CloseHandle(snapshotHandle);
     FreeLibrary(kernel32);
+    ptrCreateToolhelp32Snapshot = nullptr;
     return threadCount;
 }
 
 
 int ProcessInformer::GetModuleCount(DWORD process)
 {
-     
-    HMODULE mods[1024];
-    DWORD cb;
+    HMODULE* mods = nullptr;
+    DWORD cb = 0;
     int count = -1;
 
     HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, process);
 
     if (proc == INVALID_HANDLE_VALUE)
-    {        
-        return count;
-    }
-
-    if (K32EnumProcessModules(proc, mods, sizeof(cb), &cb))
     {
-        count = cb / sizeof(HMODULE);
-
-        CloseHandle(proc);
-        memset(mods, 0, sizeof(mods));
         return count;
     }
-    
+
+    if (K32EnumProcessModules(proc, nullptr, 0, &cb))
+    {
+        mods = new HMODULE[cb / sizeof(HMODULE)];
+
+        if (K32EnumProcessModules(proc, mods, cb, &cb))
+        {           
+            count = cb / sizeof(HMODULE);           
+        }
+        else
+        {
+            return count;
+        }
+    }
+    else
+    {
+        return count;
+    }
+
     CloseHandle(proc);
+
+    if (mods != nullptr)
+    {
+        delete[] mods;
+    }
+
     return count;
 }
 
 
-inline bool ProcessInformer::IsTargetArchitectureMatching(DWORD pid) 
+bool ProcessInformer::IsTargetArchitectureMatching(DWORD pid) 
 {
 
     HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
@@ -128,32 +152,27 @@ std::string ProcessInformer::GetWorkingDirectory(DWORD process)
 
     HANDLE fileHandle = CreateFileW(buffer, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 
-    if (fileHandle == INVALID_HANDLE_VALUE)
-    {
-        return "";
-    }
+    fileHandle == INVALID_HANDLE_VALUE ? (_RtlSecureZeroMemory(buffer, sizeof(buffer)), "") : "";
 
     result = GetFinalPathNameByHandleW(fileHandle, finalPath, MAX_PATH, FILE_NAME_NORMALIZED);
 
     CloseHandle(fileHandle);
+  
+    result == 0 ? (_RtlSecureZeroMemory(buffer, sizeof(buffer)), "") : "";
 
-    if (result == 0)
-    {        
-        return "";
-    }
+    _RtlSecureZeroMemory(buffer, sizeof(buffer));     
+    std::wstring widestring(finalPath);
+    _RtlSecureZeroMemory(finalPath, sizeof(finalPath));
+    std::string fullpath(widestring.begin(), widestring.end());
+    fullpath.erase(0, 4);
 
-    std::wstring ws(finalPath);
-    std::string s(ws.begin(), ws.end());
-    s.erase(0, 4);
-
-    size_t lastSlash = s.find_last_of('\\');
+    size_t lastSlash = fullpath.find_last_of('\\');   
 
     if (lastSlash == std::string::npos)
     {
         return "";
-    }
-
-    return s.substr(0, lastSlash);
+    }    
+    return fullpath.substr(0, lastSlash);
 }
 
 
@@ -178,12 +197,12 @@ std::string ProcessInformer::GetProcessName(DWORD pid)
             nameptr++;
             std::string nameasstring(nameptr);
             CloseHandle(processHandle);
-            ZeroMemory(name, sizeof(name));
+            _RtlSecureZeroMemory(name, sizeof(name));
             return nameasstring;
         }
     }
     CloseHandle(processHandle);
-    ZeroMemory(name, sizeof(name));
+    _RtlSecureZeroMemory(name, sizeof(name));
     return "";
 }
 

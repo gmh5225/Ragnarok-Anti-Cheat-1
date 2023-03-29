@@ -29,17 +29,21 @@ class ProcessInformer : StringObfuscation
 		/// </summary>
 		/// <param name="process">Process ID</param>
 		/// <returns>True if process are matching the same architecture, otherwise false.</returns>
-		inline bool IsTargetArchitectureMatching(DWORD process);
+		bool IsTargetArchitectureMatching(DWORD process);
 		/// <summary>
 		/// Gets the working directory, the directory the process is running from.
 		/// </summary>
 		/// <param name="process">Process ID</param>
 		/// <returns>Workings directory, otherwise an empty string.</returns>
 		std::string GetWorkingDirectory(DWORD process);
+		/// <summary>
+		/// Gets process file name.
+		/// </summary>
+		/// <param name="process">Process ID</param>
+		/// <returns>Process file name, Otherwise empty string.</returns>
 		std::string GetProcessName(DWORD process);
 
 	private:
 
-		typedef HANDLE(WINAPI* pCreateToolhelp32Snapshot)(DWORD, DWORD);
-		StringObfuscation SO;
+		typedef HANDLE(WINAPI* DynCreateToolhelp32Snapshot)(DWORD, DWORD);
 };

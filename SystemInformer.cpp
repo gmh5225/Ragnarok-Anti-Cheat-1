@@ -2,15 +2,15 @@
 
 
 
-
-
 std::string SystemInformer::GetSystemDriveLetter()
 {
 
 	char letter[MAX_PATH];
 	std::string sName = "";
 
-	if (GetWindowsDirectoryA(letter, MAX_PATH) == 0)
+    auto result = LI_FN(GetWindowsDirectoryA)(letter, MAX_PATH);
+
+	if (result == 0)
 	{
 		return sName;
 	}
@@ -32,7 +32,7 @@ std::string SystemInformer::GetSystemDriveSerialNumber()
 
     if (sizeof(systemdrive) > 0)
     {
-        if (GetVolumeInformationA(systemdrive, nullptr, 0, &serialNum, nullptr, nullptr, nullptr, 260))
+        if (LI_FN(GetVolumeInformationA)(systemdrive, nullptr, 0, &serialNum, nullptr, nullptr, nullptr, 260))
         {
             return std::to_string(serialNum);
         }
@@ -71,4 +71,16 @@ inline bool SystemInformer::IsCpuVirtualization()
     {
         return false;
     }
+}
+
+
+inline bool SystemInformer::IsSecureBoot()
+{
+
+    char brandString[49];
+    __cpuid(reinterpret_cast<int*>(brandString), 0x80000002);
+    __cpuid(reinterpret_cast<int*>(brandString + 16), 0x80000003);
+    __cpuid(reinterpret_cast<int*>(brandString + 32), 0x80000004);
+
+    return (strstr(brandString, SecureBoot().c_str()) != nullptr) ? true : false;
 }

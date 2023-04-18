@@ -3,90 +3,14 @@
 
 
 
-//int ProcessDetection::CheckForProcessesByName()
-//{
-//
-//    DWORD processes[1024], cbNeeded, cProcesses;
-//    std::string processName;
-//    std::filesystem::path filePath;
-//    HMODULE kernel32 = LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
-//    Dyn32EnumProcesses ptrK32EnumProcesses = nullptr;
-//
-//    if (kernel32 == INVALID_HANDLE_VALUE)
-//    {
-//        return FailedLoadLib;
-//    }
-//
-//    ptrK32EnumProcesses = (Dyn32EnumProcesses)GetProcAddress(kernel32, K32EnumProcessesObf().c_str());
-//
-//    if (ptrK32EnumProcesses == nullptr)
-//    {
-//        FreeLibrary(kernel32);
-//        return FailedGetProc;
-//    }
-//
-//    if (ptrK32EnumProcesses(processes, sizeof(processes), &cbNeeded))
-//    {
-//        cProcesses = cbNeeded / sizeof(DWORD);
-//        
-//        for (unsigned int i = 0; i < cProcesses; i++)
-//        {
-//            if (processes[i] != 0)
-//            {                              
-//                HANDLE targetprocess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, processes[i]);
-//                
-//                if (targetprocess == INVALID_HANDLE_VALUE)
-//                {                   
-//                    continue;
-//                }                             
-//                
-//                char buffer[MAX_PATH] = {};
-//
-//                if (K32GetProcessImageFileNameA(targetprocess, buffer, MAX_PATH) != 0)
-//                {
-//                    if (sizeof(buffer) > 0)
-//                    {
-//                        processName = std::string(buffer);
-//                        filePath = processName;
-//
-//                        for (auto iter = NaughtyList.begin(); iter != NaughtyList.end(); iter++)
-//                        {
-//                            std::string value = iter->second;
-//                            std::string internal = filePath.stem().string();
-//
-//                            if (filePath.filename().string() == value)
-//                            {
-//                                TerminateProcess(targetprocess, 0);
-//                                CloseHandle(targetprocess);
-//                            }
-//                            else if ((internal += ".exe") == value)
-//                            {
-//                                TerminateProcess(targetprocess, 0);
-//                                CloseHandle(targetprocess);
-//                            }
-//                        }
-//                    }
-//                }
-//                CloseHandle(targetprocess);
-//            }            
-//        }  
-//        memset(&processes, 0, sizeof(processes));
-//    }
-//    ptrK32EnumProcesses = nullptr;
-//    CloseHandle(kernel32);
-//    FreeLibrary(kernel32);
-//    return RanEnd;
-//}
-
-
-bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
+int ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
 {
     
     HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
 
     if (process == INVALID_HANDLE_VALUE)
     {               
-        return false;
+        return FailedProcHandle;
     }
 
     process = (HANDLE)EncodePointer(process);
@@ -99,13 +23,13 @@ bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
     const int buffsize = 8096;
     char buffer[buffsize];
 
-    HMODULE kernel32 = LoadLibraryA(Kernel32dllObf().c_str());
+    HMODULE kernel32 = LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
 
     if (kernel32 == INVALID_HANDLE_VALUE || nullptr)
     {
         process = (HANDLE)DecodePointer(process);
         CloseHandle(process);
-        return false;
+        return FailedLoadLib;
     }
 
     DynReadProcessMemory ptrReadProcessMemory = (DynReadProcessMemory)GetProcAddress(kernel32, ReadProcessMemoryObf().c_str());
@@ -115,7 +39,7 @@ bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
         FreeLibrary(kernel32);
         process = (HANDLE)DecodePointer(process);
         CloseHandle(process);
-        return false;
+        return FailedLoadLib;
     }  
 
     process = (HANDLE)DecodePointer(process);
@@ -136,7 +60,6 @@ bool ProcessDetection::CheatEngineStringsFoundInProcess(DWORD processId)
                 {                                      
                     CloseHandle(process);
                     FreeLibrary(kernel32);
-                    CloseHandle(kernel32);
                     systeminfo = {};
                     ptrReadProcessMemory = nullptr;
                     return true;
@@ -165,31 +88,29 @@ void ProcessDetection::DetectSeDebugPrivilegeToken()
     Dyn32EnumProcesses ptrK32EnumProcesses = nullptr;
     DynGetTokenInformation ptrGetTokenInformation = nullptr;
     DynOpenProcessToken ptrOpenProcessToken = nullptr;
+    auto _LoadLibraryExA = LI_FN(LoadLibraryExA).in(LI_MODULE("kernel32.dll").cached());
+    auto _OpenProcess = LI_FN(OpenProcess).in(LI_MODULE("kernel32.dll").cached());
+    auto _LookupPrivilegeValueW = LI_FN(LookupPrivilegeValueW).in(LI_MODULE("Advapi32.dll").cached());
+
 
     HMODULE kernel32 = _LoadLibraryExA(Kernel32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (kernel32 == INVALID_HANDLE_VALUE) { return; }
 
     HMODULE advapi32 = _LoadLibraryExA(Advapi32dllObf().c_str(), 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (advapi32 == NULL)
-    {
-        FreeLibrary(kernel32);
-        ptrK32EnumProcesses = nullptr;
-        return;
-    }
+    advapi32 == nullptr ? (LI_FN(FreeLibrary)(kernel32), ptrK32EnumProcesses = nullptr) : NULL;
 
     FARPROC ptrGetProcAddress = FindGetProcAddress();
 
     ptrK32EnumProcesses = (Dyn32EnumProcesses)((FARPROC(*)(HMODULE, LPCSTR))ptrGetProcAddress)(kernel32, K32EnumProcessesObf().c_str());
-    ptrK32EnumProcesses == nullptr ? (FreeLibrary(kernel32), FreeLibrary(advapi32), void()) : void();
+    ptrK32EnumProcesses == nullptr ? (LI_FN(FreeLibrary)(kernel32), LI_FN(FreeLibrary)(advapi32), void()) : void();
 
     if (ptrK32EnumProcesses(processes, sizeof(processes), &cbNeeded))
     {      
         ptrOpenProcessToken = (DynOpenProcessToken)((FARPROC(*)(HMODULE, LPCSTR))ptrGetProcAddress)(advapi32, OpenProcessTokenObf().c_str());
-        ptrOpenProcessToken == nullptr ? (FreeLibrary(kernel32), FreeLibrary(advapi32), ptrK32EnumProcesses = nullptr, void()) : void();
-
+        ptrOpenProcessToken == nullptr ? (LI_FN(FreeLibrary)(kernel32), LI_FN(FreeLibrary)(advapi32), ptrK32EnumProcesses = nullptr, void()) : void();
 
         ptrGetTokenInformation = (DynGetTokenInformation)((FARPROC(*)(HMODULE, LPCSTR))ptrGetProcAddress)(advapi32, GetTokenInformationObf().c_str());
-        ptrGetTokenInformation == nullptr ? (FreeLibrary(kernel32), FreeLibrary(advapi32), ptrK32EnumProcesses = nullptr, ptrOpenProcessToken = nullptr, void()) : void();
+        ptrGetTokenInformation == nullptr ? (LI_FN(FreeLibrary)(kernel32), LI_FN(FreeLibrary)(advapi32), ptrK32EnumProcesses = nullptr, ptrOpenProcessToken = nullptr, void()) : void();
 
         cProcesses = cbNeeded / sizeof(DWORD);
 
@@ -197,7 +118,7 @@ void ProcessDetection::DetectSeDebugPrivilegeToken()
         {
             if (processes[i] != 0)
             {
-                HANDLE targetprocess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, processes[i]);
+                HANDLE targetprocess = _OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, processes[i]);
 
                 if (targetprocess == INVALID_HANDLE_VALUE) { continue; }
 
@@ -216,7 +137,7 @@ void ProcessDetection::DetectSeDebugPrivilegeToken()
 
                     if (ptrGetTokenInformation(ptoken, TokenPrivileges, privs, buf, &buf))
                     {
-                        if (LookupPrivilegeValueW(NULL, SE_DEBUG_NAME, &tvalue))
+                        if (_LookupPrivilegeValueW(NULL, SE_DEBUG_NAME, &tvalue))
                         {
                             bool hasprivilege = false;
 
@@ -229,9 +150,10 @@ void ProcessDetection::DetectSeDebugPrivilegeToken()
                                         hasprivilege = true;
 
                                         if (hasprivilege)
-                                        {
+                                        {                                           
                                             //  CloseHandle(ptoken);
                                             //  CloseHandle(targetprocess);
+                                            //  _memset(&processes, 0, sizeof(processes));
                                         }                                       
                                     }
                                 }
@@ -239,15 +161,15 @@ void ProcessDetection::DetectSeDebugPrivilegeToken()
                         }
                     }                                                                                         
                 }
-                CloseHandle(ptoken);
-                CloseHandle(targetprocess);
+                LI_FN(CloseHandle)(ptoken);
+                LI_FN(CloseHandle)(targetprocess);
             }           
         }       
     }  
     ptrK32EnumProcesses = nullptr;
     ptrOpenProcessToken = nullptr;
     ptrGetTokenInformation = nullptr;
-    FreeLibrary(kernel32);
-    FreeLibrary(advapi32);
-    memset(&processes, 0, sizeof(processes));
+    LI_FN(FreeLibrary)(kernel32);
+    LI_FN(FreeLibrary)(advapi32);
+    _memset(&processes, 0, sizeof(processes));
 }
